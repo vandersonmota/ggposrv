@@ -1,0 +1,2 @@
+boto==2.42.0
+mysql-python==1.2.5
