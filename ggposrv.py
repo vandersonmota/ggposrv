@@ -73,7 +73,7 @@ VERSION=24
 
 MIN_CLIENT_VERSION=42
 
-DB_ENGINE="mysql"
+DB_ENGINE=os.environ.get('DB_ENGINE', 'sqlite3')
 
 if DB_ENGINE=="sqlite3":
     import sqlite3
