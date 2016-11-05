@@ -58,6 +58,7 @@ import tarfile
 import boto
 from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 import urlparse
+import db
 try:
     import requests
 except:
@@ -296,45 +297,6 @@ def set_keepalive_linux(sock, after_idle_sec=3600, interval_sec=3, max_fails=5):
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, interval_sec)
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, max_fails)
 
-def dbconnect():
-    if DB_ENGINE=="sqlite3":
-        createdb=False
-        dbfile = os.path.join(os.path.realpath(os.path.dirname(sys.argv[0])),'db', 'ggposrv.sqlite3')
-        if not os.path.exists(dbfile):
-            createdb=True
-            os.mkdir(os.path.dirname(dbfile))
-        conn = sqlite3.connect(dbfile)
-        if createdb==True:
-            cursor = conn.cursor()
-            cursor.execute("""CREATE TABLE IF NOT EXISTS users (
-                        id INTEGER PRIMARY KEY,
-                        username TEXT COLLATE NOCASE,
-                        password TEXT,
-                        salt TEXT,
-                        email TEXT,
-                        ip TEXT,
-                        date TEXT);""")
-            cursor.execute("""CREATE UNIQUE INDEX users_username_idx on users (username COLLATE NOCASE);""")
-            logging.info("created empty user database")
-            cursor.execute("""CREATE TABLE IF NOT EXISTS quarks (
-                        id INTEGER PRIMARY KEY,
-                        quark TEXT,
-                        player1 TEXT,
-                        player2 TEXT,
-                        channel TEXT,
-                        date TEXT,
-                        realtime_views INTEGER,
-                        saved_views INTEGER,
-                        p1_country CHAR(50),
-                        p2_country CHAR(50),
-                        duration INTEGER);""")
-            cursor.execute("""CREATE UNIQUE INDEX quarks_quark_idx on quarks (quark);""")
-            logging.info("created empty quark database")
-            conn.commit()
-        return conn
-    elif DB_ENGINE=="mysql":
-        conn = MySQLdb.connect(host="localhost", user="ggpo", passwd="ggpo", db="ggposrv")
-        return conn
 
 class GGPOClient(SocketServer.BaseRequestHandler):
     """
@@ -818,7 +780,7 @@ class GGPOClient(SocketServer.BaseRequestHandler):
 
             # store player nicknames
             date = datetime.datetime.today().strftime("%Y-%m-%d %H:%M:%S")
-            conn = dbconnect()
+            conn = db.connect()
             cursor = conn.cursor()
             sql = "INSERT INTO quarks (quark, player1, player2, channel, date, realtime_views, saved_views, p1_country, p2_country, duration) VALUES ("+PARAM+","+PARAM+","+PARAM+","+PARAM+","+PARAM+",0,0,"+PARAM+","+PARAM+",-1)"
             try:
@@ -898,7 +860,7 @@ class GGPOClient(SocketServer.BaseRequestHandler):
             if not os.path.exists(dbfile):
                 return()
 
-            conn = dbconnect()
+            conn = db.connect()
             cursor = conn.cursor()
             sql = "SELECT player1, player2, channel FROM quarks WHERE quark=" + PARAM
             cursor.execute(sql, [(quark)])
@@ -1211,7 +1173,7 @@ class GGPOClient(SocketServer.BaseRequestHandler):
             # increment saved views on db
             try:
                 dbfile = os.path.join(os.path.realpath(os.path.dirname(sys.argv[0])),'db', 'ggposrv.sqlite3')
-                conn = dbconnect()
+                conn = db.connect()
                 cursor = conn.cursor()
                 sql = "UPDATE quarks SET saved_views=saved_views+1 WHERE quark=" + PARAM
                 cursor.execute(sql, [quark])
@@ -1252,7 +1214,7 @@ class GGPOClient(SocketServer.BaseRequestHandler):
         # increment realtime views on db
         try:
             dbfile = os.path.join(os.path.realpath(os.path.dirname(sys.argv[0])),'db', 'ggposrv.sqlite3')
-            conn = dbconnect()
+            conn = db.connect()
             cursor = conn.cursor()
             sql = "UPDATE quarks SET realtime_views=realtime_views+1 WHERE quark=" + PARAM
             cursor.execute(sql, [quark])
@@ -1547,7 +1509,7 @@ class GGPOClient(SocketServer.BaseRequestHandler):
         if not nullauth:
 
             # New connection
-            conn = dbconnect()
+            conn = db.connect()
             cursor = conn.cursor()
 
             # fetch the user's salt
@@ -2245,7 +2207,7 @@ class GGPOClient(SocketServer.BaseRequestHandler):
                         end_date = datetime.datetime.today().strftime("%Y-%m-%d %H:%M:%S")
                         rdate1 = datetime.datetime.strptime(end_date, "%Y-%m-%d %H:%M:%S")
                         dbfile = os.path.join(os.path.realpath(os.path.dirname(sys.argv[0])),'db', 'ggposrv.sqlite3')
-                        conn = dbconnect()
+                        conn = db.connect()
                         cursor = conn.cursor()
                         sql = "SELECT date FROM quarks WHERE quark=" + PARAM
                         try:
